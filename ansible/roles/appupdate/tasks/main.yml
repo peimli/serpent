@@ -1,0 +1,32 @@
+- name: "Stop the stack"
+  shell: docker compose down
+  args:
+    chdir: /opt/serpent
+- name: "Copy nginx.conf to /opt/serpent/nginx/conf.d/nginx.conf"
+  copy:
+    src: ../docker/frontend/ssl_nginx.conf
+    dest: /opt/serpent/nginx/conf.d/  
+
+- name: "Adjust the nginx.conf with CERTBOT_DOMAIN"
+  replace:
+    path: /opt/serpent/nginx/conf.d/nginx.conf
+    regexp: 'server_name\s+[^;]+;'
+    replace: "    server_name {{ CERTBOT_DOMAIN }};"
+
+- name: "Copy docker-compose.yml to the /opt/serpent folder"
+  copy:
+    src: ../docker/docker-compose.yml
+    dest: /opt/serpent/
+
+- name: "Create .env for docker compose"
+  template:
+    src: .env.j2
+    dest: /opt/serpent/.env
+
+- name: "Ensure stack is up with latest image"
+  shell: |
+    docker compose pull 
+    docker compose up -d
+  args:
+    chdir: /opt/serpent 
+

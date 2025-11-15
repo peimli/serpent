@@ -1,0 +1,35 @@
+- name: "Grab NOIP duc archive"
+  get_url:
+    url: https://www.noip.com/download/linux/latest
+    dest: /tmp/noip-duc.tar.gz
+
+- name: "Extract NOIP duc"
+  unarchive:
+    src: /tmp/noip-duc.tar.gz
+    dest: /tmp/
+    remote_src: yes
+
+
+- name: "Grab noip duc version"
+  shell: ls -l /tmp/|grep noip-duc_ | awk '{print $NF}' | awk -F'_' '{print $2}'
+  register: ducversion
+
+- name: "Show duc version"
+  debug:
+    msg: "Captured duc version: {{ducversion.stdout}}"
+
+- name: "Install NOIP duc deb package"
+  apt:
+    deb: "/tmp/noip-duc_{{ducversion.stdout}}/binaries/noip-duc_{{ducversion.stdout}}_amd64.deb"
+
+- name: "Deploy NOIP duc config"
+  template:
+    src: noipduc.conf.j2
+    dest: /etc/default/noip-duc
+
+- name: Restart NOIP duc service
+  service:
+    name: noip-duc
+    state: restarted
+    enabled: true
+  become: true

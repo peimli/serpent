@@ -1,0 +1,23 @@
+services:
+  backend:
+    image: r3ap3rpy/serpentbackend:latest
+    env_file:
+      - .env
+    environment:
+      - MYSQL_HOST
+      - MYSQL_USER
+      - MYSQL_PASSWORD
+      - MYSQL_DATABASE
+    ports:
+      - "3000:3000"
+  nginx:
+    depends_on:
+      - backend
+    image: r3ap3rpy/serpentfrontend:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - /var/www/certbot:/var/www/certbot
+      - /etc/letsencrypt:/etc/letsencrypt

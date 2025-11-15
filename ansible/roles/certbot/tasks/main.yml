@@ -1,0 +1,72 @@
+- name: Update apt cache
+  apt:
+    update_cache: yes
+  become: true
+
+- name: Install certbot dependencies 
+  apt:
+    name:
+      - python3-dev
+      - python3-venv
+      - python3-pip
+      - libaugeas-dev
+      - gcc
+      - cron
+    state: present
+  become: true
+
+- name: Restart cron service
+  service:
+    name: cron 
+    state: restarted
+    enabled: true
+  become: true
+
+- name: Create virtual environment for certbot and install dependencies
+  shell: |
+     python3 -m venv /opt/certbot/
+     /opt/certbot/bin/pip install --upgrade pip
+     /opt/certbot/bin/pip install certbot certbot-nginx
+  register: venvdeps
+
+- name: Check venv results
+  debug:
+    msg: "{{venvdeps}}"
+
+- name: "Create softlink for certbot"
+  file:
+    src: /opt/certbot/bin/certbot
+    dest: /usr/bin/certbot
+    state: link
+
+- name: "Invoke certbot"
+  shell: echo "Y\r\n" | certbot certonly --webroot -w /var/www/certbot -d {{CERTBOT_DOMAIN}} -m {{CERTBOT_EMAIL}} --agree-tos --non-interactive
+  register: certbotrun
+
+- name: "Check results"
+  debug:
+    msg: "{{certbotrun}}"
+
+- name: "Copy ssl_nginx.conf to /opt/serpent/nginx/conf.d/nginx.conf"
+  copy:
+    src: ../docker/frontend/ssl_nginx.conf
+    dest: /opt/serpent/nginx/conf.d/nginx.conf  
+
+- name: "Adjust the nginx.conf with CERTBOT_DOMAIN"
+  replace:
+    path: /opt/serpent/nginx/conf.d/nginx.conf
+    regexp: 'server_name\s+[^;]+;'
+    replace: "    server_name {{ CERTBOT_DOMAIN }};"
+
+- name: "Restart appstack"
+  shell: docker compose restart
+  args:
+    chdir: /opt/serpent
+
+- name: Create crontask for cert renewal
+  cron:
+    name: "cert_renewal" 
+    user: root          
+    minute: "0"
+    hour: "0,12"
+    job: /opt/certbot/bin/python -c 'import random; import time; time.sleep(random.random() * 3600)' && sudo certbot renew -q" | sudo tee -a  /var/spool/cron/crontabs/root > /dev/null

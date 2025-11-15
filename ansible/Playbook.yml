@@ -1,0 +1,10 @@
+---
+- hosts: "{{EC2}}"
+  gather_facts: true
+  become: true
+  roles:
+    - role: backup
+    #- role: noipduc
+    #- role: docker
+    #- role: apps
+    #- role: certbot

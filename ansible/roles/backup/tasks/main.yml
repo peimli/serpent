@@ -1,0 +1,109 @@
+- name: "Ensure sql_backups subfolder exists in the S3 bucket"
+  shell: aws s3api put-object --bucket "{{S3BUCKET}}" --key sql_backups/
+  register: s3subfolder
+
+- name: "Subfolder creation results"
+  debug:
+    msg: "{{s3subfolder.stdout}}"
+
+- name: Ensure /opt/backup/ directory exists
+  file:
+    path: /opt/backup
+    state: directory
+- name: Ensure /opt/backup/backups/ directory exists
+  file:
+    path: /opt/backup/backups
+    state: directory
+    
+- name: Ensure /var/log/backup/ directory exists
+  file:
+    path: /var/log/backup
+    state: directory
+
+- name: Deploy backup.sh from template
+  template:
+    src: backup.sh.j2
+    dest: /opt/backup/backup.sh
+    mode: '0750'
+
+- name: "Create softlink for backup.sh"
+  file:
+    src: /opt/backup/backup.sh
+    dest: /usr/bin/backup
+    state: link
+
+- name: Create backup.service for daily backup
+  copy:
+    dest: /etc/systemd/system/backup_daily.service
+    content: |
+      [Unit]
+      Description=Backup service
+      [Service]
+      Type=oneshot
+      ExecStart=/opt/backup/backup.sh table serpent scores
+    mode: '0644'
+
+- name: Create backup_daily.timer for daily backup
+  copy:
+    dest: /etc/systemd/system/backup_daily.timer
+    content: |
+      [Unit]
+      Description=Timer to run backup_daily.service 
+      [Timer]
+      OnCalendar=*-*-* 00:00:00
+      Persistent=true
+      [Install]
+      WantedBy=timers.target
+    mode: '0644'
+
+- name: Create backup.service for 3 days archive
+  copy:
+    dest: /etc/systemd/system/backup_archive.service
+    content: |
+      [Unit]
+      Description=Backup archive
+      [Service]
+      Type=oneshot
+      ExecStart=/opt/backup/backup.sh archive
+    mode: '0644'
+
+- name: Create backup_archive.timer for daily backup
+  copy:
+    dest: /etc/systemd/system/backup_archive.timer
+    content: |
+      [Unit]
+      Description=Timer to run backup_archive.service 
+      [Timer]
+      OnCalendar=*:0/3
+      Persistent=true
+      [Install]
+      WantedBy=timers.target
+    mode: '0644'
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+    
+- name: Ensure backup_daily.service is enabled and running
+  systemd:
+    name: backup_daily.service
+    enabled: yes   
+    state: started
+
+- name: Ensure backup_daily.timer is enabled and running
+  systemd:
+    name: backup_daily.timer
+    enabled: yes   
+    state: started
+
+- name: Ensure backup_archive.service is enabled and running
+  systemd:
+    name: backup_archive.service
+    enabled: yes   
+    state: started
+
+- name: Ensure backup_archive.timer is enabled and running
+  systemd:
+    name: backup_archive.timer
+    enabled: yes   
+    state: started

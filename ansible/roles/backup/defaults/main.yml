@@ -1,0 +1,4 @@
+MYSQL_HOST: "{{ lookup('env', 'MYSQL_HOST') }}"
+MYSQL_USERNAME: "{{ lookup('env', 'MYSQL_USER') }}"
+MYSQL_PASSWORD: "{{ lookup('env', 'MYSQL_PASSWORD') }}"
+S3BUCKET: "{{ lookup('env', 'S3_BUCKET') }}"

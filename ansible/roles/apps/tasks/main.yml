@@ -1,0 +1,49 @@
+- name: "Copy sources and prepare directory layout"
+  debug:
+    msg: "Copy sources and prepare directory layout"
+
+- name: "Create /opt/serpent for the compose"
+  file:
+    path: /opt/serpent
+    state: directory
+
+- name: "Create directory for certbot /var/www/certbot"
+  file:
+    path: /var/www/certbot
+    state: directory
+
+- name: "Create directory for certbot /etc/letsencrypt"
+  file:
+    path: /etc/letsencrypt
+    state: directory
+
+- name: "Create directory for nginx config /opt/serpent/nginx/conf.d"
+  file: 
+    path: /opt/serpent/nginx/conf.d
+    state: directory
+
+- name: "Copy nginx.conf to /opt/serpent/nginx/conf.d/nginx.conf"
+  copy:
+    src: ../docker/frontend/nginx.conf
+    dest: /opt/serpent/nginx/conf.d/  
+
+- name: "Adjust the nginx.conf with CERTBOT_DOMAIN"
+  replace:
+    path: /opt/serpent/nginx/conf.d/nginx.conf
+    regexp: 'server_name\s+[^;]+;'
+    replace: "    server_name {{ CERTBOT_DOMAIN }};"
+
+- name: "Copy docker-compose.yml to the /opt/serpent folder"
+  copy:
+    src: ../docker/docker-compose.yml
+    dest: /opt/serpent/
+
+- name: "Create .env for docker compose"
+  template:
+    src: .env.j2
+    dest: /opt/serpent/.env
+
+- name: "Ensure stack is up"
+  shell: docker compose up -d
+  args:
+    chdir: /opt/serpent 
